@@ -31,14 +31,28 @@ app.get("/search", (req, res) => {
   if (searchQuery) {
     res.status(200).json({ status: 200, message: "ok", data: searchQuery });
   } else {
-    res
-      .status(500)
-      .json({
-        status: 500,
-        error: true,
-        message: "You have to provide a search",
-      });
+    res.status(500).json({
+      status: 500,
+      error: true,
+      message: "You have to provide a search",
+    });
   }
+});
+
+app.get("/movies/read", (req, res) => {
+  res.status(200).json({ status: 200, data: movies });
+});
+
+app.get("/movies/create", (req, res) => {
+  res.send("Movies creation route ");
+});
+
+app.get("/movies/update", (req, res) => {
+  res.send("Movies update route ");
+});
+
+app.get("/movies/delete", (req, res) => {
+  res.send("Movies deletion route ");
 });
 
 app.listen(PORT, () => {
