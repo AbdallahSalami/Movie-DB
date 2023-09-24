@@ -29,6 +29,15 @@ const addMovie = (title, year, rating) => {
   return newMovie;
 };
 
+const deleteMovieById = (id) => {
+  const index = findMovieById(id);
+  if (index !== -1) {
+    movies.splice(index, 1);
+    return true;
+  }
+  return false;
+};
+
 app.get("/", (req, res) => {
   res.send("ok");
 });
@@ -123,18 +132,44 @@ app.get("/movies/add", (req, res) => {
   const { title, year, rating } = req.query;
 
   if (!title || !year || !rating) {
-    res
-      .status(400)
-      .json({
-        status: 400,
-        error: true,
-        message: "Please provide title, year, and rating for the movie.",
-      });
+    res.status(400).json({
+      status: 400,
+      error: true,
+      message: "Please provide title, year, and rating for the movie.",
+    });
     return;
   }
 
   const newMovie = addMovie(title, parseInt(year), parseFloat(rating));
   res.status(200).json({ status: 200, data: movies });
+});
+
+app.get("/movies/delete/:id", (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    res
+      .status(400)
+      .json({
+        status: 400,
+        error: true,
+        message: "Please provide a valid movie ID.",
+      });
+    return;
+  }
+
+  const isDeleted = deleteMovieById(id);
+  if (isDeleted) {
+    res.status(200).json({ status: 200, data: movies });
+  } else {
+    res
+      .status(404)
+      .json({
+        status: 404,
+        error: true,
+        message: `The movie with ID ${id} does not exist`,
+      });
+  }
 });
 
 app.listen(PORT, () => {
