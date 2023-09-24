@@ -16,6 +16,19 @@ const orderMovies = (key) => {
   });
 };
 
+// Function to generate a unique ID for a new movie
+const generateUniqueId = () => {
+  return Math.max(...movies.map((movie) => movie.id), 0) + 1;
+};
+
+// Function to add a new movie to the movies array
+const addMovie = (title, year, rating) => {
+  const id = generateUniqueId();
+  const newMovie = { id, title, year, rating };
+  movies.push(newMovie);
+  return newMovie;
+};
+
 app.get("/", (req, res) => {
   res.send("ok");
 });
@@ -104,6 +117,24 @@ app.get("/movies/read/id/:id", (req, res) => {
         message: `The movie with ID ${id} does not exist`,
       });
   }
+});
+
+app.get("/movies/add", (req, res) => {
+  const { title, year, rating } = req.query;
+
+  if (!title || !year || !rating) {
+    res
+      .status(400)
+      .json({
+        status: 400,
+        error: true,
+        message: "Please provide title, year, and rating for the movie.",
+      });
+    return;
+  }
+
+  const newMovie = addMovie(title, parseInt(year), parseFloat(rating));
+  res.status(200).json({ status: 200, data: movies });
 });
 
 app.listen(PORT, () => {
