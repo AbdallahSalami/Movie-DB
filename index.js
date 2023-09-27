@@ -1,63 +1,25 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const app = express();
-const PORT = 3000; // You can choose any port you like
+const PORT = 3000;
+
+// Connect to MongoDB
+mongoose.connect("mongodb://localhost:27017/movieDB", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// Define a movie schema
+const movieSchema = new mongoose.Schema({
+  title: String,
+  year: Number,
+  rating: Number,
+});
+
+const Movie = mongoose.model("Movie", movieSchema);
 
 // This middleware allows Express to parse incoming JSON requests
 app.use(express.json());
-
-const movies = [
-  { id: 1, title: "Jaws", year: 1975, rating: 8 },
-  { id: 2, title: "Avatar", year: 2009, rating: 7.8 },
-  { id: 3, title: "Brazil", year: 1985, rating: 8 },
-  { id: 4, title: "الإرهاب والكباب", year: 1992, rating: 6.2 },
-];
-const orderMovies = (key) => {
-  return movies.slice().sort((a, b) => {
-    if (a[key] < b[key]) return -1;
-    if (a[key] > b[key]) return 1;
-    return 0;
-  });
-};
-
-// Function to generate a unique ID for a new movie
-const generateUniqueId = () => {
-  return Math.max(...movies.map((movie) => movie.id), 0) + 1;
-};
-
-// Function to add a new movie to the movies array
-const addMovie = (title, year, rating) => {
-  const id = generateUniqueId();
-  const newMovie = { id, title, year, rating };
-  movies.push(newMovie);
-  return newMovie;
-};
-
-const findMovieById = (id) => {
-  return movies.findIndex((movie) => movie.id === parseInt(id));
-};
-
-const deleteMovieById = (id) => {
-  const index = findMovieById(id);
-  if (index !== -1) {
-    movies.splice(index, 1);
-    return true;
-  }
-  return false;
-};
-
-const updateMovieById = (id, title, rating) => {
-  const index = findMovieById(id);
-  if (index !== -1) {
-    if (title) {
-      movies[index].title = title;
-    }
-    if (rating) {
-      movies[index].rating = parseFloat(rating);
-    }
-    return true;
-  }
-  return false;
-};
 
 app.get("/", (req, res) => {
   res.send("ok");
@@ -98,19 +60,32 @@ app.get("/search", (req, res) => {
 
 // Read all movies, with optional sorting
 // like /movies?sort=title
-app.get("/movies", (req, res) => {
-  let moviesData = movies.slice(); // Create a copy of the movies array
+app.get("/movies", async (req, res) => {
+  let moviesData = [];
 
-  // Sorting based on query parameter 'sort'
   const sortBy = req.query.sort;
   if (sortBy) {
-    moviesData = orderMovies(sortBy);
+    try {
+      moviesData = await Movie.find().sort({ [sortBy]: 1 });
+      res.status(200).json({ status: 200, data: moviesData });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ status: 500, error: true, message: error.message });
+    }
+  } else {
+    try {
+      moviesData = await Movie.find();
+      res.status(200).json({ status: 200, data: moviesData });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ status: 500, error: true, message: error.message });
+    }
   }
-
-  res.status(200).json({ status: 200, data: moviesData });
 });
 
-app.post("/movies", (req, res) => {
+app.post("/movies", async (req, res) => {
   const { title, year, rating } = req.body;
 
   if (!title || !year || !rating) {
@@ -122,11 +97,15 @@ app.post("/movies", (req, res) => {
     return;
   }
 
-  const newMovie = addMovie(title, parseInt(year), parseFloat(rating));
-  res.status(201).json({ status: 201, data: newMovie });
+  try {
+    const newMovie = await Movie.create({ title, year, rating });
+    res.status(201).json({ status: 201, data: newMovie });
+  } catch (error) {
+    res.status(500).json({ status: 500, error: true, message: error.message });
+  }
 });
 
-app.delete("/movies/:id", (req, res) => {
+app.delete("/movies/:id", async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
@@ -138,19 +117,25 @@ app.delete("/movies/:id", (req, res) => {
     return;
   }
 
-  const isDeleted = deleteMovieById(id);
-  if (isDeleted) {
-    res.status(200).json({ status: 200, data: movies });
-  } else {
-    res.status(404).json({
-      status: 404,
-      error: true,
-      message: `The movie with ID ${id} does not exist`,
-    });
+  try {
+    const deletedMovie = await Movie.findByIdAndDelete(id);
+
+    if (deletedMovie) {
+      const moviesData = await Movie.find();
+      res.status(200).json({ status: 200, data: moviesData });
+    } else {
+      res.status(404).json({
+        status: 404,
+        error: true,
+        message: `The movie with ID ${id} does not exist`,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ status: 500, error: true, message: error.message });
   }
 });
 
-app.put("/movies/:id", (req, res) => {
+app.put("/movies/:id", async (req, res) => {
   const { id } = req.params;
   const { title, rating } = req.body;
 
@@ -163,15 +148,25 @@ app.put("/movies/:id", (req, res) => {
     return;
   }
 
-  const isUpdated = updateMovieById(id, title, rating);
-  if (isUpdated) {
-    res.status(200).json({ status: 200, data: movies });
-  } else {
-    res.status(404).json({
-      status: 404,
-      error: true,
-      message: `The movie with ID ${id} does not exist`,
-    });
+  try {
+    const updatedMovie = await Movie.findByIdAndUpdate(
+      id,
+      { title, rating },
+      { new: true }
+    );
+
+    if (updatedMovie) {
+      const moviesData = await Movie.find();
+      res.status(200).json({ status: 200, data: moviesData });
+    } else {
+      res.status(404).json({
+        status: 404,
+        error: true,
+        message: `The movie with ID ${id} does not exist`,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ status: 500, error: true, message: error.message });
   }
 });
 
