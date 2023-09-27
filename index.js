@@ -2,6 +2,9 @@ const express = require("express");
 const app = express();
 const PORT = 3000; // You can choose any port you like
 
+// This middleware allows Express to parse incoming JSON requests
+app.use(express.json());
+
 const movies = [
   { id: 1, title: "Jaws", year: 1975, rating: 8 },
   { id: 2, title: "Avatar", year: 2009, rating: 7.8 },
@@ -27,6 +30,10 @@ const addMovie = (title, year, rating) => {
   const newMovie = { id, title, year, rating };
   movies.push(newMovie);
   return newMovie;
+};
+
+const findMovieById = (id) => {
+  return movies.findIndex((movie) => movie.id === parseInt(id));
 };
 
 const deleteMovieById = (id) => {
@@ -89,61 +96,22 @@ app.get("/search", (req, res) => {
   }
 });
 
-app.get("/movies/read", (req, res) => {
-  res.status(200).json({ status: 200, data: movies });
-});
+// Read all movies, with optional sorting
+// like /movies?sort=title
+app.get("/movies", (req, res) => {
+  let moviesData = movies.slice(); // Create a copy of the movies array
 
-app.get("/movies/create", (req, res) => {
-  res.send("Movies creation route ");
-});
-
-app.get("/movies/update", (req, res) => {
-  res.send("Movies update route ");
-});
-
-app.get("/movies/delete", (req, res) => {
-  res.send("Movies deletion route ");
-});
-
-app.get("/movies/read", (req, res) => {
-  res.status(200).json({ status: 200, data: movies });
-});
-
-app.get("/movies/read/by-date", (req, res) => {
-  const moviesByDate = orderMovies("year");
-  res.status(200).json({ status: 200, data: moviesByDate });
-});
-
-app.get("/movies/read/by-rating", (req, res) => {
-  const moviesByRating = orderMovies("rating").reverse(); // Order by highest rating first
-  res.status(200).json({ status: 200, data: moviesByRating });
-});
-
-app.get("/movies/read/by-title", (req, res) => {
-  const moviesByTitle = orderMovies("title");
-  res.status(200).json({ status: 200, data: moviesByTitle });
-});
-
-app.get("/movies/read/id/:id", (req, res) => {
-  const { id } = req.params;
-  const movie = findMovieById(id);
-
-  if (movie) {
-    res.status(200).json({ status: 200, data: movie });
-  } else {
-    res
-      .status(404)
-
-      .json({
-        status: 404,
-        error: true,
-        message: `The movie with ID ${id} does not exist`,
-      });
+  // Sorting based on query parameter 'sort'
+  const sortBy = req.query.sort;
+  if (sortBy) {
+    moviesData = orderMovies(sortBy);
   }
+
+  res.status(200).json({ status: 200, data: moviesData });
 });
 
-app.get("/movies/add", (req, res) => {
-  const { title, year, rating } = req.query;
+app.post("/movies", (req, res) => {
+  const { title, year, rating } = req.body;
 
   if (!title || !year || !rating) {
     res.status(400).json({
@@ -155,10 +123,10 @@ app.get("/movies/add", (req, res) => {
   }
 
   const newMovie = addMovie(title, parseInt(year), parseFloat(rating));
-  res.status(200).json({ status: 200, data: movies });
+  res.status(201).json({ status: 201, data: newMovie });
 });
 
-app.get("/movies/delete/:id", (req, res) => {
+app.delete("/movies/:id", (req, res) => {
   const { id } = req.params;
 
   if (!id) {
@@ -182,18 +150,16 @@ app.get("/movies/delete/:id", (req, res) => {
   }
 });
 
-app.get("/movies/update/:id", (req, res) => {
+app.put("/movies/:id", (req, res) => {
   const { id } = req.params;
-  const { title, rating } = req.query;
+  const { title, rating } = req.body;
 
   if (!id) {
-    res
-      .status(400)
-      .json({
-        status: 400,
-        error: true,
-        message: "Please provide a valid movie ID.",
-      });
+    res.status(400).json({
+      status: 400,
+      error: true,
+      message: "Please provide a valid movie ID.",
+    });
     return;
   }
 
@@ -201,13 +167,11 @@ app.get("/movies/update/:id", (req, res) => {
   if (isUpdated) {
     res.status(200).json({ status: 200, data: movies });
   } else {
-    res
-      .status(404)
-      .json({
-        status: 404,
-        error: true,
-        message: `The movie with ID ${id} does not exist`,
-      });
+    res.status(404).json({
+      status: 404,
+      error: true,
+      message: `The movie with ID ${id} does not exist`,
+    });
   }
 });
 
